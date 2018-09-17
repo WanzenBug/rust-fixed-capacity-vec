@@ -1,0 +1,9 @@
+[package]
+name = "fixed_capacity_vec"
+version = "0.1.0"
+authors = ["WanzenBug <moritz.wanzenboeck@gmail.com>"]
+description = "Extend Vec to allow reference to content while pushing new elements"
+categories = ["data-structures", "rust-patterns"]
+license = "MIT"
+repository = "https://github.com/WanzenBug/rust-fixed-capacity-vec"
+readme = "README.md"
