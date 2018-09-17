@@ -115,16 +115,12 @@ impl<'a, T> FixedCapacityVec<'a, T>
 where
     T: 'a + Clone,
 {
-    fn additional_cap(&self) -> usize {
-        self.max_len - self.buffer.len()
-    }
-
     /// Clones and appends all elements in a slice to the buffer.
     ///
     /// # Panics
     ///
-    /// Panics if the number of elements in other would cause the
-    /// underlying Vec to grow.
+    /// If the FixedCapacityVec does not have enough capacity left to extend all
+    /// elements
     ///
     /// # Examples
     ///
@@ -142,8 +138,35 @@ where
         assert!(other.len() <= self.additional_cap());
         self.buffer.extend_from_slice(other)
     }
+}
+impl<'a, T> FixedCapacityVec<'a, T>
+where
+    T: 'a,
+{
+    /// Returns the number of "empty" slots in this FixedCapacityVec
+    fn additional_cap(&self) -> usize {
+        self.max_len - self.buffer.len()
+    }
 
+    /// Appends an element to the back of a collection.
     ///
+    /// # Panics
+    ///
+    /// If the FixedCapacityVec is already at max. capacity
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// let mut vec = vec![1, 2, 3, 4];
+    /// vec.reserve(4);
+    /// {
+    ///     let (_, mut extend) = vec.with_fixed_capacity(4);
+    ///     extend.push(5);
+    ///     extend.push(6);
+    /// }
+    /// assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6]);
+    /// ```
     pub fn push(&mut self, item: T) {
         assert!(self.additional_cap() > 0);
         self.buffer.push(item)
