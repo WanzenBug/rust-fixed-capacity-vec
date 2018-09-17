@@ -11,7 +11,7 @@ use fixed_capacity_vec::AsFixedCapacityVec;
 
 let mut vec = vec![1, 2, 3, 4];
 {
-    let (mut content, mut extend_end) = vec.with_fixed_capacity(5);
+    let (content, mut extend_end) = vec.with_fixed_capacity(5);
     extend_end.push(4);
     assert_eq!(extend_end.as_ref(), &[4]);
 
