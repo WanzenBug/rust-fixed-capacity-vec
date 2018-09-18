@@ -230,6 +230,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_parameter_permutations_in_constructor() {
+        for orig_capacity in 1..40 { // 0 currently not supported
+            for length in 0..40 {
+                for new_capacity in 0..40 {
+                    let mut vec = Vec::with_capacity(orig_capacity);
+                    vec.resize(length, 0);
+                    {
+                        let (_, mut extend) = vec.with_fixed_capacity(new_capacity);
+                        // test that this capacity can actually be filled
+                        for i in 0..new_capacity {
+                            extend.push(0);
+                        }
+                    }
+                    assert_eq!(vec.len(), length + new_capacity);
+                    assert!(vec.capacity() >= length + new_capacity);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_extend() {
         let mut vec = Vec::new();
         {
