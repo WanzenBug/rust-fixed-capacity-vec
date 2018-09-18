@@ -86,9 +86,9 @@ impl<T> AsFixedCapacityVec for Vec<T> {
 
     fn with_fixed_capacity(&mut self, capacity: usize) -> (&mut [T], FixedCapacityVec<T>) {
         let len = self.len();
-        // Check if we need to allocate more memory
+        // Ensure the vector can fit `capacity` more elements after its current len() without reallocating
         self.reserve(capacity);
-        assert!(self.capacity() - len >= capacity);
+        debug_assert!(self.capacity() - len >= capacity);
 
         // Vec's internal pointer should always point to a non-null pointer. This is important for
         // slice's from_raw_parts method.
