@@ -4,6 +4,10 @@ extern crate test;
 
 use fixed_capacity_vec::AsFixedCapacityVec;
 
+const INIT_VEC_SIZE: usize = 600;
+const RLE_FRAGMENT_SIZE: usize = 256;
+const RLE_FILL_SIZE: usize = 3333;
+
 fn decode_rle_naive(buffer: &mut Vec<u8>, repeating_fragment_len: usize, num_bytes_to_fill: usize) {
     buffer.reserve(num_bytes_to_fill); // allocate required memory immediately, it's faster this way
     for _ in 0..num_bytes_to_fill {
@@ -66,7 +70,7 @@ fn get_initial_vec() -> Vec<u8> {
         let val = start;
         start = start.wrapping_add(1);
         val
-    }).take(256)
+    }).take(INIT_VEC_SIZE)
         .collect()
 }
 
@@ -80,7 +84,7 @@ fn check_result(res: &[u8]) {
 fn bench_decode_rle_naive(b: &mut test::Bencher) {
     let mut test_vec = get_initial_vec();
     b.iter(|| {
-        decode_rle_naive(&mut test_vec, 256, 4096);
+        decode_rle_naive(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
     });
     test::black_box(&test_vec);
     check_result(&test_vec);
@@ -90,7 +94,7 @@ fn bench_decode_rle_naive(b: &mut test::Bencher) {
 fn bench_decode_rle_vuln(b: &mut test::Bencher) {
     let mut test_vec = get_initial_vec();
     b.iter(|| {
-        decode_rle_vuln(&mut test_vec, 256, 4096);
+        decode_rle_vuln(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
     });
     test::black_box(&test_vec);
     check_result(&test_vec);
@@ -100,7 +104,7 @@ fn bench_decode_rle_vuln(b: &mut test::Bencher) {
 fn bench_decode_rle_lib_naive(b: &mut test::Bencher) {
     let mut test_vec = get_initial_vec();
     b.iter(|| {
-        decode_rle_lib_naive(&mut test_vec, 256, 4096);
+        decode_rle_lib_naive(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
     });
     test::black_box(&test_vec);
     check_result(&test_vec);
@@ -110,7 +114,7 @@ fn bench_decode_rle_lib_naive(b: &mut test::Bencher) {
 fn bench_decode_rle_lib_opt(b: &mut test::Bencher) {
     let mut test_vec = get_initial_vec();
     b.iter(|| {
-        decode_rle_lib_optim(&mut test_vec, 256, 4096);
+        decode_rle_lib_optim(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
     });
     test::black_box(&test_vec);
     check_result(&test_vec);
