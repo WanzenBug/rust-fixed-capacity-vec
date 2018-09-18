@@ -87,10 +87,7 @@ impl<T> AsFixedCapacityVec for Vec<T> {
     fn with_fixed_capacity(&mut self, capacity: usize) -> (&mut [T], FixedCapacityVec<T>) {
         let len = self.len();
         // Check if we need to allocate more memory
-        let free = self.capacity() - len;
-        if free < capacity {
-            self.reserve(capacity - free);
-        }
+        self.reserve(capacity);
         assert!(self.capacity() - len >= capacity);
 
         // Vec's internal pointer should always point to a non-null pointer. This is important for
