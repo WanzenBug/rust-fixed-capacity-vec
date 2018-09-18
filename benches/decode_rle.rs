@@ -57,11 +57,7 @@ fn decode_rle_lib_optim(
         append.extend_from_slice(slice_to_repeat); // Hopefully memcpy here
         filled += slice_to_repeat.len();
     }
-    append.extend(
-        slice_to_repeat[..(num_bytes_to_fill - filled)]
-            .iter()
-            .map(|u| *u),
-    );
+    append.extend_from_slice(&slice_to_repeat[..(num_bytes_to_fill - filled)]);
 }
 
 fn get_initial_vec() -> Vec<u8> {
