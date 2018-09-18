@@ -113,9 +113,9 @@ impl<T> AsFixedCapacityVec for Vec<T> {
 
 impl<'a, T> FixedCapacityVec<'a, T>
 where
-    T: 'a + Clone,
+    T: 'a + Copy,
 {
-    /// Clones and appends all elements in a slice to the buffer.
+    /// Appends all elements in a slice to the buffer.
     ///
     /// # Panics
     ///
@@ -136,7 +136,11 @@ where
     /// ```
     pub fn extend_from_slice(&mut self, other: &[T]) {
         assert!(other.len() <= self.additional_cap());
-        self.buffer.extend_from_slice(other)
+        unsafe {
+            let len = self.buffer.len();
+            self.buffer.set_len(len + other.len());
+            self.buffer.get_unchecked_mut(len..).copy_from_slice(other);
+        }
     }
 }
 impl<'a, T> FixedCapacityVec<'a, T>
