@@ -131,6 +131,7 @@ where
     /// }
     /// assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6, 7, 8]);
     /// ```
+    #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         assert!(other.len() <= self.additional_cap());
         unsafe {
@@ -145,6 +146,7 @@ where
     T: 'a,
 {
     /// Returns the number of "empty" slots in this FixedCapacityVec
+    #[inline]
     fn additional_cap(&self) -> usize {
         self.max_len - self.buffer.len()
     }
@@ -168,6 +170,7 @@ where
     /// }
     /// assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6]);
     /// ```
+    #[inline]
     pub fn push(&mut self, item: T) {
         assert!(self.additional_cap() > 0);
         self.buffer.push(item)
