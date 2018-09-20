@@ -242,7 +242,7 @@ mod tests {
                     {
                         let (_, mut extend) = vec.with_fixed_capacity(new_capacity);
                         // test that this capacity can actually be filled
-                        for i in 0..new_capacity {
+                        for _ in 0..new_capacity {
                             extend.push(0);
                         }
                     }
