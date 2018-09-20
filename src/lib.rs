@@ -86,9 +86,9 @@ impl<T> AsFixedCapacityVec for Vec<T> {
 
     fn with_fixed_capacity(&mut self, capacity: usize) -> (&mut [T], FixedCapacityVec<T>) {
         let len = self.len();
-        // Check if we need to allocate more memory
+        // Ensure the vector can fit `capacity` more elements after its current len() without reallocating
         self.reserve(capacity);
-        assert!(self.capacity() - len >= capacity);
+        debug_assert!(self.capacity() - len >= capacity);
 
         // Vec's internal pointer should always point to a non-null pointer. This is important for
         // slice's from_raw_parts method.
@@ -131,6 +131,7 @@ where
     /// }
     /// assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6, 7, 8]);
     /// ```
+    #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         assert!(other.len() <= self.additional_cap());
         unsafe {
@@ -145,6 +146,7 @@ where
     T: 'a,
 {
     /// Returns the number of "empty" slots in this FixedCapacityVec
+    #[inline]
     fn additional_cap(&self) -> usize {
         self.max_len - self.buffer.len()
     }
@@ -168,6 +170,7 @@ where
     /// }
     /// assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6]);
     /// ```
+    #[inline]
     pub fn push(&mut self, item: T) {
         assert!(self.additional_cap() > 0);
         self.buffer.push(item)
@@ -228,6 +231,27 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parameter_permutations_in_constructor() {
+        for orig_capacity in 1..40 { // 0 currently not supported
+            for length in 0..40 {
+                for new_capacity in 0..40 {
+                    let mut vec = Vec::with_capacity(orig_capacity);
+                    vec.resize(length, 0);
+                    {
+                        let (_, mut extend) = vec.with_fixed_capacity(new_capacity);
+                        // test that this capacity can actually be filled
+                        for _ in 0..new_capacity {
+                            extend.push(0);
+                        }
+                    }
+                    assert_eq!(vec.len(), length + new_capacity);
+                    assert!(vec.capacity() >= length + new_capacity);
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_extend() {
