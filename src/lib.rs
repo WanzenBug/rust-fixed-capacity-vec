@@ -245,13 +245,39 @@ where
         self.buffer.push(item)
     }
 
+    /// Return the maximum capacity of FixedCapacityVec.
+    ///
+    /// This matches exactly the value passed in `with_fixed_capacity(n)`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// let mut v = vec![1, 2, 3, 4];
+    /// let (_, append) = v.with_fixed_capacity(7);
+    /// assert_eq!(append.capacity(), 7);
+    /// ```
     #[inline]
-    pub fn capacity(&mut self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.max_len - self.start
     }
 
+    /// Returns the number of elements in the FixedCapacityVec.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// let mut v = vec![1, 2, 3, 4];
+    /// let (_, mut append) = v.with_fixed_capacity(7);
+    /// assert_eq!(append.len(), 0);
+    /// append.push(1);
+    /// assert_eq!(append.len(), 1);
+    /// append.extend_with_repeat(&[2, 3], 2);
+    /// assert_eq!(append.len(), 5);
+    /// ```
     #[inline]
-    pub fn len(&mut self) -> usize {
+    pub fn len(&self) -> usize {
         self.buffer.len() - self.start
     }
 }
