@@ -52,11 +52,9 @@ fn decode_rle_lib_optim(
 ) {
     let (old, mut append) = buffer.with_fixed_capacity(num_bytes_to_fill);
     let slice_to_repeat = &old[(old.len() - repeating_fragment_len)..]; // figure out what to repeat
-    let mut filled = 0;
-    while filled + slice_to_repeat.len() < num_bytes_to_fill {
-        append.extend_from_slice(slice_to_repeat); // Hopefully memcpy here
-        filled += slice_to_repeat.len();
-    }
+    let full_repeats = num_bytes_to_fill / slice_to_repeat.len();
+    append.extend_with_repeat(slice_to_repeat, full_repeats);
+    let filled = append.len();
     append.extend_from_slice(&slice_to_repeat[..(num_bytes_to_fill - filled)]);
 }
 

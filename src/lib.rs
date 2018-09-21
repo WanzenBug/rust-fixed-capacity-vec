@@ -124,7 +124,6 @@ where
     /// ```
     /// use fixed_capacity_vec::AsFixedCapacityVec;
     /// let mut vec = vec![1, 2, 3, 4];
-    /// vec.reserve(4);
     /// {
     ///     let (_, mut extend) = vec.with_fixed_capacity(4);
     ///     extend.extend_from_slice(&[5, 6, 7, 8]);
@@ -138,6 +137,76 @@ where
             let len = self.buffer.len();
             self.buffer.set_len(len + other.len());
             self.buffer.get_unchecked_mut(len..).copy_from_slice(other);
+        }
+    }
+
+    /// Extend the buffer by repeating the given slice
+    ///
+    /// # Panics
+    ///
+    /// If the slice length times the number of repetitions would overflow
+    ///
+    /// If the number of repetitions would exceed the capacity
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// let mut vec = Vec::new();
+    /// {
+    ///     let (_, mut append) = vec.with_fixed_capacity(8);
+    ///     append.extend_with_repeat(&[0, 1], 4);
+    /// }
+    /// assert_eq!(&vec[..], &[0, 1, 0, 1, 0, 1, 0, 1]);
+    /// ```
+    #[inline]
+    pub fn extend_with_repeat(&mut self, slice: &[T], n: usize) {
+        let cap_needed = slice.len().checked_mul(n).expect("capacity overflow");
+        assert!(cap_needed <= self.additional_cap());
+
+        // If `n` is larger than zero, it can be split as
+        // `n = 2^expn + rem (2^expn > rem, expn >= 0, rem >= 0)`.
+        // `2^expn` is the number represented by the leftmost '1' bit of `n`,
+        // and `rem` is the remaining part of `n`.
+
+        // `2^expn` repetition is done by doubling `buf` `expn`-times.
+        let start_pos = self.buffer.len();
+        let buf_start = unsafe { (self.buffer.as_mut_ptr() as *mut T).add(start_pos) };
+        let mut buf_fill = buf_start;
+        let mut copy_size = slice.len();
+
+        // Initial copy from slice, all other copies will source from the already copied data
+        unsafe {
+            std::ptr::copy_nonoverlapping(slice.as_ptr(), buf_fill, copy_size);
+            buf_fill = buf_fill.add(copy_size);
+        }
+        {
+            let mut m = n >> 1;
+            // If `m > 0`, there are remaining bits up to the leftmost '1'.
+            while m > 0 {
+                // `buf.extend(buf)`:
+                unsafe {
+                    std::ptr::copy_nonoverlapping(buf_start, buf_fill, copy_size);
+                    buf_fill = buf_fill.add(copy_size);
+                }
+
+                copy_size <<= 1;
+                m >>= 1;
+            }
+        }
+
+        // `rem` (`= n - 2^expn`) repetition is done by copying
+        // first `rem` repetitions from `buf` itself.
+        let rem_len = cap_needed - copy_size; // `self.len() * rem`
+        if rem_len > 0 {
+            // `buf.extend(buf[0 .. rem_len])`:
+            unsafe {
+                // This is non-overlapping since `2^expn > rem`.
+                std::ptr::copy_nonoverlapping(buf_start, buf_fill, rem_len);
+            }
+        }
+        unsafe {
+            self.buffer.set_len(start_pos + cap_needed);
         }
     }
 }
@@ -174,6 +243,16 @@ where
     pub fn push(&mut self, item: T) {
         assert!(self.additional_cap() > 0);
         self.buffer.push(item)
+    }
+
+    #[inline]
+    pub fn capacity(&mut self) -> usize {
+        self.max_len - self.start
+    }
+
+    #[inline]
+    pub fn len(&mut self) -> usize {
+        self.buffer.len() - self.start
     }
 }
 
@@ -234,7 +313,8 @@ mod tests {
 
     #[test]
     fn test_parameter_permutations_in_constructor() {
-        for orig_capacity in 1..40 { // 0 currently not supported
+        for orig_capacity in 1..40 {
+            // 0 currently not supported
             for length in 0..40 {
                 for new_capacity in 0..40 {
                     let mut vec = Vec::with_capacity(orig_capacity);
@@ -295,5 +375,31 @@ mod tests {
         let mut vec = Vec::new();
         let (_, mut extend) = vec.with_fixed_capacity(2);
         extend.extend(::std::iter::repeat(2).take(3));
+    }
+
+    #[test]
+    fn test_extend_with_repeat_empty() {
+        let mut vec: Vec<i32> = Vec::new();
+        {
+            let (_, mut extend) = vec.with_fixed_capacity(3);
+            extend.extend_with_repeat(&[], 10);
+        }
+        assert_eq!(vec.len(), 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_extend_with_repeat_overflow() {
+        let mut vec = Vec::new();
+        let (_, mut extend) = vec.with_fixed_capacity(4);
+        extend.extend_with_repeat(&[1, 2, 3, 4], usize::max_value());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_extend_with_repeat_capacity() {
+        let mut vec = Vec::new();
+        let (_, mut extend) = vec.with_fixed_capacity(1);
+        extend.extend_with_repeat(&[1], 5);
     }
 }
