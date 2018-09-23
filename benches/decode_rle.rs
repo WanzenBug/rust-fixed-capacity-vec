@@ -69,8 +69,8 @@ fn get_initial_vec() -> Vec<u8> {
 }
 
 fn check_result(res: &[u8]) {
-    for i in 0..(res.len() - 256) {
-        assert_eq!(res[i], res[i + 256])
+    for i in INIT_VEC_SIZE..(res.len() - RLE_FRAGMENT_SIZE) {
+        assert_eq!(res[i], res[i + RLE_FRAGMENT_SIZE])
     }
 }
 
