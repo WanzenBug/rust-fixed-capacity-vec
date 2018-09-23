@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! use fixed_capacity_vec::AsFixedCapacityVec;
+//! use fixed_capacity_vec::VecExt;
 //!
 //! let mut vec = vec![1, 2, 3, 4];
 //! {
@@ -36,7 +36,7 @@ use std::ops::DerefMut;
 use std::slice;
 
 /// Allows pushing to a Vec while keeping a reference to it's content.
-pub trait AsFixedCapacityVec {
+pub trait VecExt {
     type Item;
 
     /// Split a vec to create an initialized "read" view and an extendable "write" view
@@ -53,7 +53,7 @@ pub trait AsFixedCapacityVec {
     ///
     /// Basic usage:
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut vec = Vec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -68,6 +68,25 @@ pub trait AsFixedCapacityVec {
         &mut self,
         capacity: usize,
     ) -> (&mut [Self::Item], FixedCapacityVec<Self::Item>);
+
+
+    /// Fill vector based on computation of vector items
+    ///
+    /// # Panics
+    ///
+    /// Panics if not enough space for elements could be reserved
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fixed_capacity_vec::VecExt;
+    /// let mut v = vec![1, 2];
+    /// v.fill_with(4, |src| {
+    ///     src.len()
+    /// });
+    /// assert_eq!(&v, &[1, 2, 2, 3, 4, 5])
+    /// ```
+    fn fill_with<F>(&mut self, limit: usize, func: F) where F: FnMut(&[Self::Item]) -> Self::Item;
 }
 
 /// A safe wrapper around a Vec which is not allowed to reallocate
@@ -81,7 +100,7 @@ where
     buffer: &'a mut Vec<T>,
 }
 
-impl<T> AsFixedCapacityVec for Vec<T> {
+impl<T> VecExt for Vec<T> {
     type Item = T;
 
     fn with_fixed_capacity(&mut self, capacity: usize) -> (&mut [T], FixedCapacityVec<T>) {
@@ -106,6 +125,35 @@ impl<T> AsFixedCapacityVec for Vec<T> {
             },
         )
     }
+
+    fn fill_with<F>(&mut self, limit: usize, mut func: F) where F: FnMut(&[T]) -> T {
+        self.reserve(limit);
+
+        let init_len = self.len();
+        let src = self.as_mut_ptr();
+        let mut dst = unsafe { self.as_mut_ptr().add(init_len) };
+
+        let mut local_len = SetLenOnDrop::new(self);
+
+        for _ in 1..limit {
+            let arg = unsafe { std::slice::from_raw_parts_mut(src, local_len.len()) };
+            let result = func(arg);
+            unsafe {
+                std::ptr::write(dst, result);
+                dst = dst.add(1);
+            }
+            local_len.increment(1);
+        }
+
+        if limit > 0 {
+            let arg = unsafe { std::slice::from_raw_parts_mut(src, local_len.len()) };
+            let result = func(arg);
+            unsafe {
+                std::ptr::write(dst, result);
+            }
+            local_len.increment(1);
+        }
+    }
 }
 
 impl<'a, T> FixedCapacityVec<'a, T>
@@ -122,7 +170,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut vec = vec![1, 2, 3, 4];
     /// {
     ///     let (_, mut extend) = vec.with_fixed_capacity(4);
@@ -151,7 +199,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut vec = Vec::new();
     /// {
     ///     let (_, mut append) = vec.with_fixed_capacity(8);
@@ -229,7 +277,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut vec = vec![1, 2, 3, 4];
     /// vec.reserve(4);
     /// {
@@ -252,7 +300,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut v = vec![1, 2, 3, 4];
     /// let (_, append) = v.with_fixed_capacity(7);
     /// assert_eq!(append.capacity(), 7);
@@ -267,7 +315,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use fixed_capacity_vec::AsFixedCapacityVec;
+    /// use fixed_capacity_vec::VecExt;
     /// let mut v = vec![1, 2, 3, 4];
     /// let (_, mut append) = v.with_fixed_capacity(7);
     /// assert_eq!(append.len(), 0);
@@ -279,6 +327,38 @@ where
     #[inline]
     pub fn len(&self) -> usize {
         self.buffer.len() - self.start
+    }
+}
+
+struct SetLenOnDrop<'a, T> where T: 'a {
+    vec: &'a mut Vec<T>,
+    len: usize,
+}
+
+impl<'a, T> SetLenOnDrop<'a, T> where T: 'a {
+    fn new(vec: &'a mut Vec<T>) -> Self {
+        let len = vec.len();
+
+        SetLenOnDrop {
+            vec,
+            len,
+        }
+    }
+
+    fn increment(&mut self, inc: usize) {
+        self.len += inc;
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<'a, T> Drop for SetLenOnDrop<'a, T> where T: 'a {
+    fn drop(&mut self) {
+        unsafe {
+            self.vec.set_len(self.len)
+        }
     }
 }
 
@@ -427,5 +507,34 @@ mod tests {
         let mut vec = Vec::new();
         let (_, mut extend) = vec.with_fixed_capacity(1);
         extend.extend_with_repeat(&[1], 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fill_with_panic() {
+        let mut vec : Vec<i32> = Vec::new();
+        vec.fill_with(2, |_| {
+            panic!("Panic!");
+        });
+    }
+
+    #[test]
+    fn test_fill_with_panic_len() {
+        let mut vec : Vec<i32> = Vec::new();
+        {
+            let mut vec = std::panic::AssertUnwindSafe(&mut vec);
+            let res = std::panic::catch_unwind(move || {
+                vec.fill_with(10, |slice| {
+                    if slice.len() >= 5 {
+                        panic!();
+                    }
+                    slice.len() as i32
+                });
+            });
+            assert!(res.is_err())
+        }
+
+        assert_eq!(vec.len(), 5);
+        assert_eq!(&vec, &[0, 1, 2, 3, 4]);
     }
 }

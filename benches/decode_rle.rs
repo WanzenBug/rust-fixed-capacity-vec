@@ -2,7 +2,7 @@
 extern crate fixed_capacity_vec;
 extern crate test;
 
-use fixed_capacity_vec::AsFixedCapacityVec;
+use fixed_capacity_vec::VecExt;
 
 const INIT_VEC_SIZE: usize = 600;
 const RLE_FRAGMENT_SIZE: usize = 256;
@@ -58,6 +58,26 @@ fn decode_rle_lib_optim(
     append.extend_from_slice(&slice_to_repeat[..(num_bytes_to_fill - filled)]);
 }
 
+fn decode_rle_lib_fill_unsafe(
+    buffer: &mut Vec<u8>,
+    repeating_fragment_len: usize,
+    num_bytes_to_fill: usize,
+) {
+    buffer.fill_with(num_bytes_to_fill, |slice| {
+        unsafe { *slice.get_unchecked(slice.len() - repeating_fragment_len) }
+    })
+}
+
+fn decode_rle_lib_fill_safe(
+    buffer: &mut Vec<u8>,
+    repeating_fragment_len: usize,
+    num_bytes_to_fill: usize,
+) {
+    buffer.fill_with(num_bytes_to_fill, |slice| {
+        slice[slice.len() - repeating_fragment_len]
+    })
+}
+
 fn get_initial_vec() -> Vec<u8> {
     let mut start = 0u8;
     std::iter::repeat_with(|| {
@@ -109,6 +129,26 @@ fn bench_decode_rle_lib_opt(b: &mut test::Bencher) {
     let mut test_vec = get_initial_vec();
     b.iter(|| {
         decode_rle_lib_optim(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
+    });
+    test::black_box(&test_vec);
+    check_result(&test_vec);
+}
+
+#[bench]
+fn bench_decode_rle_lib_fill_safe(b: &mut test::Bencher) {
+    let mut test_vec = get_initial_vec();
+    b.iter(|| {
+        decode_rle_lib_fill_safe(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
+    });
+    test::black_box(&test_vec);
+    check_result(&test_vec);
+}
+
+#[bench]
+fn bench_decode_rle_lib_fill_unsafe(b: &mut test::Bencher) {
+    let mut test_vec = get_initial_vec();
+    b.iter(|| {
+        decode_rle_lib_fill_unsafe(&mut test_vec, RLE_FRAGMENT_SIZE, RLE_FILL_SIZE);
     });
     test::black_box(&test_vec);
     check_result(&test_vec);
