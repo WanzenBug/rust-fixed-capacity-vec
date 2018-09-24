@@ -7,7 +7,7 @@ Inspired by [this Pre-RFC](https://internals.rust-lang.org/t/pre-rfc-fixed-capac
 ## Example
 
 ```rust
-use fixed_capacity_vec::AsFixedCapacityVec;
+use fixed_capacity_vec::VecExt;
 
 let mut vec = vec![1, 2, 3, 4];
 {
